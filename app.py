@@ -60,6 +60,48 @@ def log_puzzle():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/analytics", methods=["GET"])
+def get_analytics():
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Total sessions
+                cur.execute("SELECT COUNT(DISTINCT session_id) FROM puzzle_logs")
+                total_sessions = cur.fetchone()[0]
+
+                # Puzzle completions and averages
+                cur.execute("""
+                    SELECT
+                        puzzle_id,
+                        COUNT(*) AS completions,
+                        AVG(duration_seconds)::INT AS avg_duration,
+                        MAX(attempt_number) AS max_attempts
+                    FROM puzzle_logs
+                    GROUP BY puzzle_id
+                    ORDER BY puzzle_id
+                """)
+                rows = cur.fetchall()
+
+                puzzle_stats = [
+                    {
+                        "puzzle_id": row[0],
+                        "completions": row[1],
+                        "avg_duration_seconds": row[2],
+                        "max_attempts_by_any_session": row[3]
+                    }
+                    for row in rows
+                ]
+
+                return jsonify({
+                    "total_sessions": total_sessions,
+                    "puzzles": puzzle_stats
+                }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Run the Flask app (in debug mode) when the script is executed directly
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))  # fallback for local dev
