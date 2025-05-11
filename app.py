@@ -59,3 +59,8 @@ def log_puzzle():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# Run the Flask app (in debug mode) when the script is executed directly
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))  # fallback for local dev
+    app.run(host="0.0.0.0", port=port)
