@@ -120,6 +120,36 @@ def get_analytics():
         # Return error details if something fails
         return jsonify({"error": str(e)}), 500
 
+@app.route("/feedback", methods=["POST"])
+def submit_feedback():
+    data = request.get_json()
+
+    required_fields = {"experience", "learned", "favorite", "moreGames"}
+    if not data or not required_fields.issubset(data):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO feedback (experience, learned, favorite, more_games, session_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                    """,
+                    (
+                        data["experience"],
+                        int(data["learned"]),
+                        data["favorite"],
+                        data["moreGames"],
+                        data.get("session_id", "unknown")
+                    )
+                )
+
+        return jsonify({"status": "submitted"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # Run the Flask app (in debug mode) when the script is executed directly
 if __name__ == '__main__':
