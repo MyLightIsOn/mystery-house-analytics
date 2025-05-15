@@ -1,20 +1,20 @@
 from flask import Flask
 from flask_cors import CORS
-from database import get_connection
+from config import DATABASE_URL
+from database import db
 from routes import register_routes
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
-    app.config.from_object("config")
 
+    # Flask-SQLAlchemy config
+    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+    db.init_app(app)
     register_routes(app)
 
     return app
 
 app = create_app()
-
-if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
