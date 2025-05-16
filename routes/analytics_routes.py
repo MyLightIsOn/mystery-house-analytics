@@ -124,3 +124,49 @@ def completion_funnel():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@analytics_bp.route("/analytics/first-try-success", methods=["GET"])
+def first_try_success():
+    try:
+        from collections import defaultdict
+
+        puzzle_order = ["puzzle_1", "puzzle_2", "puzzle_3", "puzzle_4", "puzzle_5", "puzzle_6"]
+        attempt_map = defaultdict(list)
+
+        # Get all relevant data
+        results = db.session.query(
+            PuzzleLog.session_id,
+            PuzzleLog.puzzle_id,
+            PuzzleLog.attempt_number
+        ).all()
+
+        # Group attempts by session and puzzle
+        for session_id, puzzle_id, attempt_number in results:
+            if puzzle_id in puzzle_order:
+                attempt_map[(session_id, puzzle_id)].append(attempt_number)
+
+        # Count how many were solved on first try
+        puzzle_stats = defaultdict(lambda: {"total": 0, "first_try": 0})
+
+        for (session_id, puzzle_id), attempts in attempt_map.items():
+            min_attempt = min(attempts)
+            puzzle_stats[puzzle_id]["total"] += 1
+            if min_attempt == 1 and len(set(attempts)) == 1:
+                puzzle_stats[puzzle_id]["first_try"] += 1
+
+        # Format output
+        output = []
+        for pid in puzzle_order:
+            total = puzzle_stats[pid]["total"]
+            first = puzzle_stats[pid]["first_try"]
+            output.append({
+                "puzzle_id": pid,
+                "total_sessions": total,
+                "first_try_successes": first,
+                "success_rate_percent": round((first / total * 100), 1) if total > 0 else 0
+            })
+
+        return jsonify(output), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
