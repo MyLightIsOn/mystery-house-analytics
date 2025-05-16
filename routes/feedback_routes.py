@@ -34,3 +34,22 @@ def submit_feedback():
         # Roll back in case of error to avoid corrupt transactions
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@feedback_bp.route("/feedback", methods=["GET"])
+def get_feedback():
+    try:
+        feedback_entries = Feedback.query.all()
+
+        feedback_list = [{
+            "id": f.id,
+            "experience": f.experience,
+            "learned": f.learned,
+            "favorite": f.favorite,
+            "more_games": f.more_games,
+            "session_id": f.session_id
+        } for f in feedback_entries]
+
+        return jsonify(feedback_list), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
