@@ -226,3 +226,49 @@ def improvement_score():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@analytics_bp.route("/analytics/device-comparison", methods=["GET"])
+def device_comparison():
+    try:
+        from collections import defaultdict
+        from statistics import mean
+
+        puzzle_order = ["puzzle_1", "puzzle_2", "puzzle_3", "puzzle_4", "puzzle_5", "puzzle_6"]
+        device_data = defaultdict(lambda: defaultdict(list))
+        completion_data = defaultdict(lambda: defaultdict(set))
+
+        # Fetch all puzzle log data
+        logs = db.session.query(
+            PuzzleLog.session_id,
+            PuzzleLog.puzzle_id,
+            PuzzleLog.duration_seconds,
+            PuzzleLog.device_type
+        ).all()
+
+        # Group durations and completions by device and puzzle
+        for session_id, puzzle_id, duration, device in logs:
+            if puzzle_id in puzzle_order:
+                device_data[device][puzzle_id].append(duration)
+                completion_data[device][puzzle_id].add(session_id)
+
+        # Structure output
+        output = []
+
+        for device in device_data:
+            for puzzle_id in puzzle_order:
+                durations = device_data[device].get(puzzle_id, [])
+                sessions = completion_data[device].get(puzzle_id, set())
+                avg_duration = int(mean(durations)) if durations else 0
+                completion_count = len(sessions)
+                output.append({
+                    "device_type": device,
+                    "puzzle_id": puzzle_id,
+                    "average_duration_seconds": avg_duration,
+                    "completion_count": completion_count
+                })
+
+        return jsonify(output), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
