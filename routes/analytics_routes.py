@@ -125,6 +125,7 @@ def completion_funnel():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @analytics_bp.route("/analytics/first-try-success", methods=["GET"])
 def first_try_success():
     try:
@@ -167,6 +168,61 @@ def first_try_success():
             })
 
         return jsonify(output), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@analytics_bp.route("/analytics/improvement-score", methods=["GET"])
+def improvement_score():
+    try:
+        from collections import defaultdict
+        from statistics import mean
+
+        puzzle_order = ["puzzle_1", "puzzle_2", "puzzle_3", "puzzle_4", "puzzle_5", "puzzle_6"]
+        first_attempts = defaultdict(list)
+        last_attempts = defaultdict(list)
+
+        # Get all attempt data
+        logs = db.session.query(
+            PuzzleLog.session_id,
+            PuzzleLog.puzzle_id,
+            PuzzleLog.attempt_number,
+            PuzzleLog.duration_seconds
+        ).order_by(PuzzleLog.session_id, PuzzleLog.puzzle_id, PuzzleLog.attempt_number).all()
+
+        # Group by session and puzzle
+        session_puzzle_map = defaultdict(list)
+        for sid, pid, attempt, duration in logs:
+            session_puzzle_map[(sid, pid)].append((attempt, duration))
+
+        for (sid, pid), attempts in session_puzzle_map.items():
+            if pid in puzzle_order:
+                sorted_attempts = sorted(attempts, key=lambda x: x[0])
+                first_duration = sorted_attempts[0][1]
+                last_duration = sorted_attempts[-1][1]
+                first_attempts[pid].append(first_duration)
+                last_attempts[pid].append(last_duration)
+
+        # Format result
+        result = []
+        for pid in puzzle_order:
+            first_list = first_attempts[pid]
+            last_list = last_attempts[pid]
+            if first_list and last_list:
+                first_avg = int(mean(first_list))
+                last_avg = int(mean(last_list))
+                improvement = first_avg - last_avg
+                improvement_pct = round((improvement / first_avg * 100), 1) if first_avg > 0 else 0
+                result.append({
+                    "puzzle_id": pid,
+                    "average_first_attempt_seconds": first_avg,
+                    "average_last_attempt_seconds": last_avg,
+                    "improvement_seconds": improvement,
+                    "improvement_percent": improvement_pct
+                })
+
+        return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
